@@ -44,12 +44,12 @@ class AgentView(APIView):
 
         else:
             question = request.data.get("message")
-
-            serializer = DeterministicGuardRail(data=question)
+            
+            serializer = DeterministicGuardRail(data={"message": question})
             serializer.is_valid(raise_exception=True)
-
+            print(serializer.data)
             graph_input = {
-                "messages": [HumanMessage(content=serializer.data)],
+                "messages": [HumanMessage(content=serializer.data.get('message'))],
                 "user_id": user_id,
             }
 

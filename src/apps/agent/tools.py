@@ -3,7 +3,9 @@ from .services import send_email
 from apps.accounts.models import User
 from langgraph.types import interrupt
 from .crag import get_agent
+import logging
 
+logger=logging.getLogger(__name__)
 
 @tool
 def send_report_email(
@@ -11,32 +13,64 @@ def send_report_email(
     html_content: str,
     runtime: ToolRuntime,
 ) -> str:
-    """Send a report email to the authenticated user after approval."""
+    """
+    Send a professionally designed HTML report email to the authenticated user.
+
+    The recipient is automatically resolved using the authenticated user's
+    ID stored in the LangGraph runtime state. The LLM cannot choose or
+    override the recipient email address.
+
+    The email body must contain well-structured, visually appealing HTML
+    with a clean layout, attractive typography, appropriate spacing,
+    clear headings, and properly formatted sections.
+
+    Design the email to be responsive and readable across desktop and
+    mobile email clients. Use inline CSS for styling and avoid unnecessary
+    visual clutter. Ensure the HTML is complete and email-client friendly.
+
+    Args:
+        subject: A clear and descriptive email subject.
+        html_content: A beautifully formatted, responsive HTML email body.
+        runtime: LangGraph runtime containing the authenticated user's state.
+
+    Returns:
+        A confirmation message when the email is sent successfully.
+
+    Security:
+        - Only sends emails to the authenticated user's registered address.
+        - Never accepts recipient addresses from the LLM.
+        - Never accesses another user's email address.
+    """
+    
 
     user_id = runtime.state["user_id"]
     user = User.objects.get(id=user_id)
     print('EMAIL TOOL CALLED')
     decision = interrupt(
-        {
-            "type": "approval",
-            "reason": "Send report email",
-            "email": user.email,
-            "subject": subject,
-            "html_content": html_content,
-            "instruction": "Approve sending this email?",
-        }
-    )
-
-    if not isinstance(decision, dict) or decision.get("approved") is not True:
-        return "Email sending rejected by the user."
-
-    return send_email(
-        to_email=user.email,
-        name=user.name,
-        subject=subject,
-        html_content=html_content,
-    )
-
+            {
+                "type": "approval",
+                "reason": "Send report email",
+                "email": user.email,
+                "subject": subject,
+                "html_content": html_content,
+                "instruction": "Approve sending this email?",
+            }
+        )
+        
+    try:
+        if not isinstance(decision, dict) or decision.get("approved") is not True:
+                return "Email sending rejected by the user."
+        
+        send_email(
+                to_email=user.email,
+                name=user.name,
+                subject=subject,
+                html_content=html_content,
+            )
+    except Exception :
+         logger.exception("Email delivery failed for user_id=%s", user_id)
+         return "Email delivery failed due to an internal error."
+    
 
 @tool
 def knowladgebase(question: str, runtime: ToolRuntime):
